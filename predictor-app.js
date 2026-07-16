@@ -383,7 +383,8 @@ async function importFromLink() {
       throw new Error('No result blocks were found in the provided link.');
     }
 
-    const dates = extractDateLinksFromHtml(content);
+    const specificDateMatch = baseUrl.match(/[?&]date=(\d{4}-\d{2}-\d{2})/);
+    const isSpecificDatePage = Boolean(specificDateMatch);
     const pagesToFetch = [];
     const seenDates = new Set();
 
@@ -394,19 +395,22 @@ async function importFromLink() {
       }
     }
 
-    for (const date of dates.slice(0, 10)) {
-      if (!seenDates.has(date)) {
-        seenDates.add(date);
-        pagesToFetch.push(date);
-      }
-    }
-
-    if (pagesToFetch.length < 10) {
-      const fallbackStart = pageEntries[0]?.date || dates[0] || new Date().toISOString().slice(0, 10);
-      for (const date of getRecentDates(fallbackStart, 10)) {
+    if (!isSpecificDatePage) {
+      const dates = extractDateLinksFromHtml(content);
+      for (const date of dates.slice(0, 10)) {
         if (!seenDates.has(date)) {
           seenDates.add(date);
           pagesToFetch.push(date);
+        }
+      }
+
+      if (pagesToFetch.length < 10) {
+        const fallbackStart = pageEntries[0]?.date || dates[0] || new Date().toISOString().slice(0, 10);
+        for (const date of getRecentDates(fallbackStart, 10)) {
+          if (!seenDates.has(date)) {
+            seenDates.add(date);
+            pagesToFetch.push(date);
+          }
         }
       }
     }
@@ -418,6 +422,7 @@ async function importFromLink() {
     });
 
     for (const pageUrl of urlsToFetch) {
+      if (isSpecificDatePage && pageUrl !== baseUrl) continue;
       try {
         const pageResponse = await fetch(buildImportUrl(pageUrl), { headers: { Accept: 'text/html,application/json,text/plain' } });
         if (!pageResponse.ok) continue;
