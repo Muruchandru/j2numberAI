@@ -1,7 +1,8 @@
 const STORAGE_KEY = 'j2_mcboy_predictor_v2';
+const DEFAULT_IMPORT_URL = 'http://live4d.jaguar20.biz/jaguarlive4d/';
 
 function loadData() {
-  const def = { history: [], topEndings: ['07', '15', '58', '72', '94'] };
+  const def = { history: [], topEndings: ['07', '15', '58', '72', '94'], lastImportedAt: '' };
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) || def;
   } catch {
@@ -362,7 +363,7 @@ function buildDateUrl(baseUrl, date) {
 
 async function importFromLink() {
   const input = document.getElementById('importUrl');
-  const url = input?.value?.trim();
+  const url = (input?.value?.trim()) || DEFAULT_IMPORT_URL;
 
   if (!url) {
     showToast('🔗 Please enter a link first', 'error');
@@ -456,13 +457,33 @@ async function importFromLink() {
     data.history.sort((a, b) => new Date(a.date) - new Date(b.date));
     data.topEndings = updateTopEndings(data.history);
     saveData(data);
+    // record last successful import date (YYYY-MM-DD)
+    try {
+      const meta = loadData();
+      meta.lastImportedAt = new Date().toISOString().slice(0, 10);
+      saveData(meta);
+    } catch (e) {
+      // ignore
+    }
 
-    input.value = '';
+    if (input) input.value = '';
     refreshAll();
     showToast(`✅ Imported ${uniqueEntries.length} draw entries from the link`, 'success');
   } catch (error) {
     console.error(error);
     showToast('⚠️ Could not read the link. Try a direct results page or a page with visible draw data.', 'error');
+  }
+}
+
+async function autoImportIfNeeded() {
+  const data = loadData();
+  const today = new Date().toISOString().slice(0, 10);
+  if (data.lastImportedAt === today) return; // already imported today
+
+  try {
+    await importFromLink();
+  } catch (err) {
+    console.warn('auto import failed', err);
   }
 }
 
