@@ -126,6 +126,7 @@ function renderHistory(history) {
         <div class="history-type">${entry.type === '3pm' ? '🎯 3PM' : '🎯 9PM'}</div>
       </div>
       <div class="history-nums">${(entry.numbers || []).slice(0, 8).join(' • ')}${(entry.numbers || []).length > 8 ? ' …' : ''}</div>
+      <button class="btn btn-danger delete-entry-btn" data-id="${entry.id}" type="button">Delete</button>
     </div>
   `).join('');
 }
@@ -184,6 +185,17 @@ function clearAll() {
     refreshAll();
     showToast('All data cleared.', '');
   }
+}
+
+function deleteHistoryEntry(entryId) {
+  const data = loadData();
+  const filtered = data.history.filter((entry) => entry.id !== entryId);
+  if (filtered.length === data.history.length) return;
+  data.history = filtered;
+  data.topEndings = updateTopEndings(data.history);
+  saveData(data);
+  refreshAll();
+  showToast('✅ Deleted selected result.', 'success');
 }
 
 function normalizeDate(value) {
@@ -512,6 +524,16 @@ function initApp() {
   if (deleteAllHistoryBtn) deleteAllHistoryBtn.addEventListener('click', clearAll);
   if (refreshButton) refreshButton.addEventListener('click', refreshAll);
   if (importButton) importButton.addEventListener('click', importFromLink);
+
+  const historyList = document.getElementById('historyList');
+  if (historyList) {
+    historyList.addEventListener('click', (event) => {
+      const button = event.target.closest('.delete-entry-btn');
+      if (!button) return;
+      const id = parseFloat(button.dataset.id);
+      if (!Number.isNaN(id)) deleteHistoryEntry(id);
+    });
+  }
 }
 
 if (typeof document !== 'undefined') {
