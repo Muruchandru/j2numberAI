@@ -464,7 +464,12 @@ footer {
 
   <!-- HISTORY -->
   <div class="card">
-    <div class="section-title">📜 Recent History</div>
+    <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">
+      <div class="section-title" style="margin:0;">📜 Recent History</div>
+      <div>
+        <button class="btn btn-danger" id="deleteAllHistoryBtn" style="min-width:120px;">🗑️ Delete All</button>
+      </div>
+    </div>
     <div id="historyList">
       <div class="empty-state">
         <div class="icon">📭</div>

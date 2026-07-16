@@ -1,5 +1,4 @@
 const STORAGE_KEY = 'j2_mcboy_predictor_v2';
-const DEFAULT_IMPORT_URL = 'http://live4d.jaguar20.biz/jaguarlive4d/';
 
 function loadData() {
   const def = { history: [], topEndings: ['07', '15', '58', '72', '94'], lastImportedAt: '' };
@@ -363,7 +362,7 @@ function buildDateUrl(baseUrl, date) {
 
 async function importFromLink() {
   const input = document.getElementById('importUrl');
-  const url = (input?.value?.trim()) || DEFAULT_IMPORT_URL;
+  const url = input?.value?.trim();
 
   if (!url) {
     showToast('🔗 Please enter a link first', 'error');
@@ -374,7 +373,9 @@ async function importFromLink() {
 
   try {
     const baseUrl = /^(https?:\/\/)/i.test(url) ? url : `https://${url}`;
-    const response = await fetchWithFallback(baseUrl, { headers: { Accept: 'text/html,application/json,text/plain' } });
+    const proxyUrl = buildImportUrl(baseUrl);
+    const response = await fetch(proxyUrl, { headers: { Accept: 'text/html,application/json,text/plain' } });
+    if (!response.ok) throw new Error(`Request failed with ${response.status}`);
     const content = await response.text();
     const pageEntries = parseResultsFromHtml(content);
     console.log('import pageEntries', pageEntries);
@@ -418,10 +419,10 @@ async function importFromLink() {
 
     for (const pageUrl of urlsToFetch) {
       try {
-        const pageResponse = await fetchWithFallback(pageUrl, { headers: { Accept: 'text/html,application/json,text/plain' } });
+        const pageResponse = await fetch(buildImportUrl(pageUrl), { headers: { Accept: 'text/html,application/json,text/plain' } });
+        if (!pageResponse.ok) continue;
         const pageContent = await pageResponse.text();
         let parsedEntries = parseResultsFromHtml(pageContent);
-        // If we requested a specific date via ?date=YYYY-MM-DD, prefer that date
         const dateMatch = pageUrl.match(/[?&]date=([^&]+)/);
         if (dateMatch && dateMatch[1]) {
           const forced = decodeURIComponent(dateMatch[1]);
@@ -497,11 +498,13 @@ function initApp() {
   refreshAll();
   const saveButton = document.getElementById('saveBtn');
   const clearButton = document.getElementById('clearHistoryBtn');
+  const deleteAllHistoryBtn = document.getElementById('deleteAllHistoryBtn');
   const refreshButton = document.getElementById('refreshBtn');
   const importButton = document.getElementById('importBtn');
 
   if (saveButton) saveButton.addEventListener('click', addResult);
   if (clearButton) clearButton.addEventListener('click', clearAll);
+  if (deleteAllHistoryBtn) deleteAllHistoryBtn.addEventListener('click', clearAll);
   if (refreshButton) refreshButton.addEventListener('click', refreshAll);
   if (importButton) importButton.addEventListener('click', importFromLink);
 }
