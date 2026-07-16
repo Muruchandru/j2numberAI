@@ -69,6 +69,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    server = HTTPServer(('0.0.0.0', 8080), Handler)
-    print('Serving at http://127.0.0.1:8080')
+    port = int(os.getenv('PORT', '8080'))
+    server = HTTPServer(('0.0.0.0', port), Handler)
+    print(f'Serving at http://127.0.0.1:{port}')
     server.serve_forever()
