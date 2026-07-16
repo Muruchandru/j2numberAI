@@ -328,6 +328,32 @@ function buildImportUrl(url) {
   return `/proxy?url=${encodeURIComponent(target)}`;
 }
 
+function buildPublicProxyUrls(target) {
+  // return a list of alternative public proxy endpoints that return raw HTML
+  // try allorigins, then jina.ai raw proxy
+  return [
+    `/proxy?url=${encodeURIComponent(target)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+    `https://r.jina.ai/http://${target.replace(/^https?:\/\//i, '')}`,
+  ];
+}
+
+async function fetchWithFallback(target, options = {}) {
+  const urls = buildPublicProxyUrls(target);
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, options);
+      if (!resp.ok) throw new Error(`Status ${resp.status} for ${url}`);
+      return resp;
+    } catch (err) {
+      lastError = err;
+      // try next
+    }
+  }
+  throw lastError || new Error('All proxy attempts failed');
+}
+
 function buildDateUrl(baseUrl, date) {
   if (!baseUrl || !date) return baseUrl;
   const separator = baseUrl.includes('?') ? '&' : '?';
@@ -347,12 +373,7 @@ async function importFromLink() {
 
   try {
     const baseUrl = /^(https?:\/\/)/i.test(url) ? url : `https://${url}`;
-    const proxyUrl = buildImportUrl(baseUrl);
-    const response = await fetch(proxyUrl, { headers: { Accept: 'text/html,application/json,text/plain' } });
-    if (!response.ok) {
-      throw new Error(`Request failed with ${response.status}`);
-    }
-
+    const response = await fetchWithFallback(baseUrl, { headers: { Accept: 'text/html,application/json,text/plain' } });
     const content = await response.text();
     const pageEntries = parseResultsFromHtml(content);
     console.log('import pageEntries', pageEntries);
@@ -395,12 +416,16 @@ async function importFromLink() {
     });
 
     for (const pageUrl of urlsToFetch) {
-      const pageResponse = await fetch(buildImportUrl(pageUrl), { headers: { Accept: 'text/html,application/json,text/plain' } });
-      if (!pageResponse.ok) continue;
-      const pageContent = await pageResponse.text();
-      const parsedEntries = parseResultsFromHtml(pageContent);
-      console.log('import fetched', pageUrl, parsedEntries);
-      fetchedEntries.push(...parsedEntries);
+      try {
+        const pageResponse = await fetchWithFallback(pageUrl, { headers: { Accept: 'text/html,application/json,text/plain' } });
+        const pageContent = await pageResponse.text();
+        const parsedEntries = parseResultsFromHtml(pageContent);
+        console.log('import fetched', pageUrl, parsedEntries);
+        fetchedEntries.push(...parsedEntries);
+      } catch (err) {
+        console.warn('failed to fetch page', pageUrl, err);
+        continue;
+      }
     }
 
     const mergedEntries = [...pageEntries, ...fetchedEntries];
