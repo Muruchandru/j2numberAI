@@ -420,7 +420,13 @@ async function importFromLink() {
       try {
         const pageResponse = await fetchWithFallback(pageUrl, { headers: { Accept: 'text/html,application/json,text/plain' } });
         const pageContent = await pageResponse.text();
-        const parsedEntries = parseResultsFromHtml(pageContent);
+        let parsedEntries = parseResultsFromHtml(pageContent);
+        // If we requested a specific date via ?date=YYYY-MM-DD, prefer that date
+        const dateMatch = pageUrl.match(/[?&]date=([^&]+)/);
+        if (dateMatch && dateMatch[1]) {
+          const forced = decodeURIComponent(dateMatch[1]);
+          parsedEntries = parsedEntries.map((e) => ({ ...e, date: forced }));
+        }
         console.log('import fetched', pageUrl, parsedEntries);
         fetchedEntries.push(...parsedEntries);
       } catch (err) {
